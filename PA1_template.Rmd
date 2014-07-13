@@ -1,20 +1,100 @@
-# Reproducible Research: Peer Assessment 1
+---
+title: "Step Data"
+output: html_document
+---
+
+We'll first read in the data.
 
 
-## Loading and preprocessing the data
-
-
-
-## What is mean total number of steps taken per day?
-
-
-
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
+```{r}
+activity <- read.csv("activity.csv")
+summary(activity)
+```
 
 
 
-## Are there differences in activity patterns between weekdays and weekends?
+The histogram below shows the frequency of the total number of steps taken over each day.
+```{r, }
+sumTotalSteps <- aggregate(activity$steps, list(activity$date),sum )
+colnames(sumTotalSteps) = list("Date","Total.Steps")
+
+hist(sumTotalSteps$Total.Steps, ylim=c(0,30))
+
+```
+
+
+
+### What is mean total number of steps taken per day?
+Here we can see the mean followed by the median of the steps taken per day.
+
+
+```{r, }
+mean(sumTotalSteps$Total.Steps, na.rm=TRUE)
+
+
+median(sumTotalSteps$Total.Steps, na.rm=TRUE)
+```
+
+###What are the daily patterns?
+Here it is determined what intervals have the highest number of steps taken over all days.
+The max mean steps is early in the morning at 835.
+```{r}
+meanIntervalSteps <- aggregate(activity$steps, list(activity$interval),mean , na.rm=TRUE)
+colnames(meanIntervalSteps) <- list("Interval","mean.steps")
+plot(meanIntervalSteps$Interval, meanIntervalSteps$mean.steps, type="l")
+max.AveSteps <- meanIntervalSteps[meanIntervalSteps$mean.steps == max(meanIntervalSteps$mean.steps), ]
+max.AveSteps
+abline(h=max.AveSteps$mean.steps, v=max.AveSteps$Interval)
+```
+
+There are a large number of missing values
+
+```{r}
+
+sum(is.na(activity$steps))
+
+```
+
+Create a new dataset with missing vales replaced by the average for that interval.
+
+
+```{r}
+imputed <- activity
+missing_steps <- is.na(imputed$steps)
+ids <- match(imputed[missing_steps, "interval"], meanIntervalSteps$Interval)
+imputed[missing_steps,"steps"] <- meanIntervalSteps[ids,"mean.steps"]
+
+```
+
+Create a histogram using dataset with imputed missing steps.  
+Frequency of 10,000-15,000 steps a day has increased
+```{r}
+sumTotalSteps_imputed <- aggregate(imputed$steps, list(imputed$date),sum )
+colnames(sumTotalSteps_imputed) = list("Date","Total.Steps")
+
+hist(sumTotalSteps_imputed$Total.Steps, ylim=c(0,40))
+```
+
+
+The mean and median haven't changed much.  Imputing using the average for that interval has more of an effect on the frequency of 10,000-15,000 steps a day.
+```{r}
+
+
+mean(sumTotalSteps_imputed$Total.Steps, na.rm=TRUE)
+median(sumTotalSteps_imputed$Total.Steps, na.rm=TRUE)
+
+```
+
+### Weekday vs Weekends
+The weekday has a higher peek but weekends seem to have more intervals with higher amounts of steps
+
+```{r}
+library(ggplot2)
+imputed$date_type <- ifelse(weekdays(as.Date(imputed$date)) %in% c("Saturday","Sunday"), "weekend","weekday")
+
+meanIntervalSteps_imputed <- aggregate(imputed$steps, list(imputed$date_type,imputed$interval),mean , na.rm=TRUE)
+colnames(meanIntervalSteps_imputed) <- list("date_type","Interval","mean.steps")
+qplot(Interval, mean.steps,data = meanIntervalSteps_imputed, factes=c(meanIntervalSteps_imputed$date_type), geom="line") +
+    facet_wrap(~date_type,2)
+
+```
